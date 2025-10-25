@@ -3,13 +3,10 @@ import cors from "cors";
 import dotenv from "dotenv";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-
 dotenv.config();
-
 
 const app = express();
 const PORT = process.env.PORT || 5001;
-
 
 // ✅ Middleware
 app.use(
@@ -22,7 +19,7 @@ app.use(
     credentials: true,
   })
 );
-
+app.use(express.json());
 
 // ✅ Check API Key
 if (!process.env.GEMINI_API_KEY) {
@@ -30,10 +27,8 @@ if (!process.env.GEMINI_API_KEY) {
   process.exit(1);
 }
 
-
 // ✅ Initialize Gemini AI
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-
 
 // 🧠 System prompt for slide generation
 const SYSTEM_PROMPT = `You are an AI assistant that helps create PowerPoint presentations. 
@@ -48,7 +43,6 @@ When a user provides a topic or request, generate structured slide content in th
   ]
 }
 
-
 Rules:
 - Generate 5–8 slides for a complete presentation
 - Keep titles concise and impactful
@@ -57,17 +51,14 @@ Rules:
 - Include an introduction and conclusion slide
 - Respond ONLY with valid JSON (no markdown, no code blocks)`;
 
-
 // Helper function to retry API calls with exponential backoff
 const retryWithBackoff = async (fn, maxRetries = 3) => {
   let lastError;
-  
   for (let i = 0; i < maxRetries; i++) {
     try {
       return await fn();
     } catch (error) {
       lastError = error;
-      
       // Check for rate limit or quota errors (don't retry these)
       if (error.message.includes('429') || 
           error.message.includes('quota') || 
@@ -75,23 +66,18 @@ const retryWithBackoff = async (fn, maxRetries = 3) => {
         console.error('❌ API quota exceeded. Please wait or switch models.');
         throw error;
       }
-      
       // If it's not a server overload error, don't retry
       if (!error.message.includes('503') && !error.message.includes('overloaded')) {
         throw error;
       }
-      
       // Calculate exponential backoff delay
       const delay = Math.pow(2, i) * 1000;
       console.log(`⏳ Retrying in ${delay/1000} seconds... (Attempt ${i + 1}/${maxRetries})`);
-      
       await new Promise(resolve => setTimeout(resolve, delay));
     }
   }
-  
   throw lastError;
 };
-
 
 // 🧩 Route: Generate slides
 app.post("/api/generate-slides", async (req, res) => {
@@ -101,13 +87,10 @@ app.post("/api/generate-slides", async (req, res) => {
       return res.status(400).json({ error: "Prompt is required" });
     }
 
-
     console.log("📝 Generating slides for prompt:", prompt);
-
 
     // ✅ FIXED: Use gemini-2.5-flash (the latest working model - Oct 2025)
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-
 
     let fullPrompt = `${SYSTEM_PROMPT}\n\nUser Request: ${prompt}`;
     if (conversationHistory.length > 0) {
@@ -118,16 +101,13 @@ app.post("/api/generate-slides", async (req, res) => {
       )}`;
     }
 
-
     // Use retry logic for the API call
     const result = await retryWithBackoff(async () => {
       return await model.generateContent(fullPrompt);
     });
 
-
     const response = result.response;
-    let text = response.text().replace(/```json|```/g, "").trim();
-
+    let text = response.text().replace(/``````/g, "").trim();
 
     let slideData;
     try {
@@ -145,12 +125,10 @@ app.post("/api/generate-slides", async (req, res) => {
       };
     }
 
-
     console.log(`✅ Generated ${slideData.slides.length} slides`);
     res.json(slideData);
   } catch (error) {
     console.error("❌ Error generating slides:", error);
-    
     // Check for quota/rate limit errors
     if (error.message.includes('429') || error.message.includes('quota')) {
       return res.status(429).json({
@@ -160,7 +138,6 @@ app.post("/api/generate-slides", async (req, res) => {
         isRetryable: false
       });
     }
-    
     // Check if it's a server overload error
     if (error.message.includes('503') || error.message.includes('overloaded')) {
       return res.status(503).json({
@@ -169,7 +146,6 @@ app.post("/api/generate-slides", async (req, res) => {
         isRetryable: true
       });
     }
-    
     res.status(500).json({
       error: "Failed to generate slides",
       details: error.message,
@@ -178,47 +154,34 @@ app.post("/api/generate-slides", async (req, res) => {
   }
 });
 
-
 // ✏️ Route: Edit slides
 app.post("/api/edit-slides", async (req, res) => {
   try {
     const { prompt, currentSlides } = req.body;
     if (!prompt || !currentSlides) {
-      return res
-        .status(400)
-        .json({ error: "Prompt and current slides are required" });
+      return res.status(400).json({ error: "Prompt and current slides are required" });
     }
-
 
     console.log("✏️ Editing slides with prompt:", prompt);
 
-
-    // ✅ FIXED: Use gemini-2.5-flash (the latest working model - Oct 2025)
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-
     const editPrompt = `${SYSTEM_PROMPT}
-
 
 Current slides:
 ${JSON.stringify(currentSlides, null, 2)}
 
-
 User's edit request: ${prompt}
 
-
 Return the UPDATED slides in the same JSON format with all slides (modified and unmodified).`;
-
 
     // Use retry logic for the API call
     const result = await retryWithBackoff(async () => {
       return await model.generateContent(editPrompt);
     });
 
-
     const response = result.response;
-    let text = response.text().replace(/```json|```/g, "").trim();
-
+    let text = response.text().replace(/``````/g, "").trim();
 
     let slideData;
     try {
@@ -231,13 +194,10 @@ Return the UPDATED slides in the same JSON format with all slides (modified and 
       };
     }
 
-
     console.log("✅ Slides edited successfully");
     res.json(slideData);
   } catch (error) {
     console.error("❌ Error editing slides:", error);
-    
-    // Check for quota/rate limit errors
     if (error.message.includes('429') || error.message.includes('quota')) {
       return res.status(429).json({
         error: "API quota exceeded",
@@ -246,8 +206,6 @@ Return the UPDATED slides in the same JSON format with all slides (modified and 
         isRetryable: false
       });
     }
-    
-    // Check if it's a server overload error
     if (error.message.includes('503') || error.message.includes('overloaded')) {
       return res.status(503).json({
         error: "Service temporarily unavailable",
@@ -255,7 +213,6 @@ Return the UPDATED slides in the same JSON format with all slides (modified and 
         isRetryable: true
       });
     }
-    
     res.status(500).json({
       error: "Failed to edit slides",
       details: error.message,
@@ -263,7 +220,6 @@ Return the UPDATED slides in the same JSON format with all slides (modified and 
     });
   }
 });
-
 
 // 🩺 Health check
 app.get("/api/health", (req, res) => {
@@ -274,7 +230,6 @@ app.get("/api/health", (req, res) => {
     quota: "Unlimited (Rate limited to 2 RPM on free tier)"
   });
 });
-
 
 // 🚀 Start server
 app.listen(PORT, () => {
