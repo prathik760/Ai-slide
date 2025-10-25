@@ -12,10 +12,12 @@ const PORT = process.env.PORT || 5001;
 
 
 // ✅ Middleware
-app.use(express.json());
 app.use(
   cors({
-    origin: "http://localhost:3000",
+    origin: [
+      "http://localhost:3000",
+      "https://ai-slide-beta.vercel.app"
+    ],
     methods: ["GET", "POST"],
     credentials: true,
   })
