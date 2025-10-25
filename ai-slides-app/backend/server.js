@@ -276,8 +276,8 @@ app.get("/api/health", (req, res) => {
 
 // 🚀 Start server
 app.listen(PORT, () => {
-  console.log(`🚀 Server running at http://localhost:${PORT}`);
-  console.log(`📡 Endpoints ready at http://localhost:${PORT}/api`);
-  console.log(`🤖 Using model: gemini-2.5-flash (October 2025 release)`);
-  console.log(`⚡ Model Features: Fast, cost-efficient, multimodal support`);
+  console.log(` Server running at http://localhost:${PORT}`);
+  console.log(`Endpoints ready at http://localhost:${PORT}/api`);
+  console.log(`Using model: gemini-2.5-flash (October 2025 release)`);
+  console.log(`Model Features: Fast, cost-efficient, multimodal support`);
 });

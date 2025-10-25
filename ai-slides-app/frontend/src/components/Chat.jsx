@@ -240,7 +240,7 @@ const Chat = ({ onSlidesGenerated, onPromptEntered, onMessagesUpdate, slides, se
 
     try {
       // Call the backend API
-      const response = await fetch('http://localhost:5001/api/generate-slides', {
+     const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/generate-slides`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

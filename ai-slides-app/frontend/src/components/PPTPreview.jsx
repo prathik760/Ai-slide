@@ -282,7 +282,7 @@ const PPTPreview = ({
     setIsEditing(true);
     
     try {
-      const response = await fetch('http://localhost:5001/api/edit-slide', {
+     const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/edit-slide`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
